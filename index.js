@@ -1,50 +1,65 @@
-const express = require('express');
-const session = require('express-session');
-const cors = require('cors');
-const config = require('./config.js');
-const bodyParser = require('body-parser');
-const cookieParser = require('cookie-parser');
-const nocache = require("nocache");
+import express from 'express';
+import cors from 'cors';
+import { config } from './config.js';
+import cookieParser from 'cookie-parser';
+import nocache from 'nocache';
+import loginRoute from './routes/login.js';
+import callbackRoute from './routes/callback.js';
+import refreshRoute from './routes/refresh.js';
+import logoutRoute from './routes/logout.js';
+import registerRoute from './routes/register.js';
+import meRoute from './routes/me.js';
 
-// configure Express app and install the JSON middleware for parsing JSON bodies
-const app = express();
+(async function main() {
+  await startServer();
+})();
 
-app.use(bodyParser.json());
+/**
+ * Start the Express web server.
+ * @param dataSource Database connection
+ */
+async function startServer() {
+  // configure Express app and install the JSON middleware for parsing JSON bodies
+  const app = express();
 
-app.use(cookieParser());
+  app.use(express.json());
 
-// configure CORS
-app.use(cors(
-  {
-    origin: true,
-    credentials: true
-  })
-);
+  app.use(cookieParser());
 
-app.use(nocache());
+  // configure CORS
+  app.use(
+    cors({
+      origin: true,
+      credentials: true,
+    })
+  );
 
-// configure sessions
-app.use(session(
-  {
-    secret: '1234567890',
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      secure: true,
-      httpOnly: true,
-      maxAge: 3600000,
-      sameSite: 'lax'
-    }
-  })
-);
+  app.use(nocache());
 
-// use routes
-app.use('/app/login', require('./routes/login.js'));
-app.use('/app/callback', require('./routes/callback.js'));
-app.use('/app/refresh', require('./routes/refresh.js'));
-app.use('/app/logout', require('./routes/logout.js'));
-app.use('/app/register', require('./routes/register.js'));
-app.use('/app/me', require('./routes/me.js'));
+  // use routes
+  app.use('/app/login', loginRoute);
+  app.use('/app/callback', callbackRoute);
+  app.use('/app/refresh', refreshRoute);
+  app.use('/app/logout', logoutRoute);
+  app.use('/app/register', registerRoute);
+  app.use('/app/me', meRoute);
 
-// start server
-app.listen(config.serverPort, () => console.log(`FusionAuth example server listening on port ${config.serverPort}.`));
+  try {
+    const server = await app.listen(config.serverPort);
+    console.info(`🚀 Server running on port ${config.serverPort}`);
+
+    // Handle termination signal.
+    // eslint-disable-next-line no-undef
+    process.on('SIGTERM', async () => {
+      console.info('🚦 SIGTERM received. Stopping HTTP server.');
+      server.close(async () => {
+        console.info('🛑 HTTP server stopped.');
+        // eslint-disable-next-line no-undef
+        process.exit(0);
+      });
+    });
+  } catch (error) {
+    console.error('❗️ Error starting server', error);
+    throw error;
+  }
+}

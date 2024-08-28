@@ -1,30 +1,30 @@
-const express = require("express");
-const config = require("../config.js");
-const cookie = require("../cookie.js");
-const pkce = require("../pkce.js");
-const redirectState = require("../redirectState.js");
+import express from 'express';
+import { config } from '../config.js';
+import { cookieHelpers } from '../cookie.js';
+import { generatePKCE } from '../pkce.js';
+import { pushRedirectUrlToState } from '../redirectState.js';
 
 const router = express.Router();
 
-router.get("/", async (req, res) => {
-  console.log("accepting request for register");
+router.get('/:clientId', async (req, res) => {
+  console.log('accepting request for register');
 
-  console.log(`client_id is ${req.query.client_id}`);
-  const newState = redirectState.pushRedirectUrlToState(
+  console.log(`Client ID is: ${req.params.clientId}`);
+  const newState = pushRedirectUrlToState(
     req.query.redirect_uri,
     req.query.state
   );
 
-  const code = await pkce.generatePKCE();
-  cookie.setSecure(res, "codeVerifier", code.code_verifier);
-  const redirect_uri = `${req.protocol}://${req.get("host")}/app/callback`;
+  const code = await generatePKCE();
+  cookieHelpers.setSecure(res, 'codeVerifier', code.code_verifier);
+  const redirect_uri = `${req.protocol}://${req.get('host')}/app/callback`;
   const queryParams = {
-    client_id: req.query.client_id,
-    scope: req.query.scope ?? "openid offline_access",
-    response_type: "code",
+    client_id: req.params.clientId,
+    scope: req.query.scope ?? 'openid offline_access',
+    response_type: 'code',
     redirect_uri: redirect_uri,
     code_challenge: code.code_challenge,
-    code_challenge_method: "S256",
+    code_challenge_method: 'S256',
     state: newState,
   };
   const fullUrl = generateUrl(queryParams);
@@ -37,4 +37,4 @@ function generateUrl(queryParams) {
   return `${config.fusionAuthBaseUrl}/oauth2/register?${query}`;
 }
 
-module.exports = router;
+export default router;
